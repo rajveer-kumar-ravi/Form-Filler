@@ -15,7 +15,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { PublicQuestion, ThemeConfig } from '@/types/form';
-import { api } from '@/lib/api';
+import { api, getApiUrl } from '@/lib/api';
 
 interface QuestionStepProps {
   question: PublicQuestion;
@@ -382,7 +382,7 @@ export function QuestionStep({
 
                 <div className="flex items-center gap-2">
                   <a
-                    href={`http://127.0.0.1:8000${value.url}`}
+                    href={getApiUrl(value.url)}
                     target="_blank"
                     rel="noreferrer"
                     className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-white border border-slate-200 transition"

@@ -10,6 +10,11 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+export const getApiUrl = (path: string = '') => {
+  const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+};
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {

@@ -138,6 +138,41 @@ npm run dev
 
 ---
 
+## 🌐 Cloud Deployment Guide (100% Free & Easy)
+
+You can easily deploy FormFlow for free in under 5 minutes using **Vercel** for the Frontend and **Render** (or **Railway**) for the Backend.
+
+### Step 1: Deploy Backend on Render (Free Python Web Service)
+1. Sign up / log in to [Render.com](https://render.com) using your GitHub account.
+2. Click **New +** > **Web Service**.
+3. Connect your GitHub repository: `rajveer-kumar-ravi/Form-Filler`.
+4. Configure the settings:
+   * **Name:** `formflow-backend`
+   * **Root Directory:** Leave empty (repo root) or set to `backend`
+   * **Environment:** `Python 3`
+   * **Build Command:** `pip install -r backend/requirements.txt`
+   * **Start Command:** `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+   * **Plan:** Free
+5. Click **Deploy Web Service**.
+6. Once deployed, copy your backend URL (e.g. `https://formflow-backend.onrender.com`).
+
+---
+
+### Step 2: Deploy Frontend on Vercel (Official Next.js Platform)
+1. Sign up / log in to [Vercel.com](https://vercel.com) using your GitHub account.
+2. Click **Add New...** > **Project**.
+3. Import your GitHub repository: `rajveer-kumar-ravi/Form-Filler`.
+4. In the configuration screen:
+   * **Root Directory:** Click **Edit** and select `frontend`.
+   * **Framework Preset:** `Next.js` (auto-detected).
+   * **Environment Variables:**
+     * Name: `NEXT_PUBLIC_API_URL`
+     * Value: `https://formflow-backend.onrender.com` *(paste your backend URL from Step 1)*
+5. Click **Deploy**.
+6. In about 60 seconds, your site is live with a custom URL (e.g., `https://form-filler-xxx.vercel.app`) and free automatic SSL/HTTPS!
+
+---
+
 ## 🧪 Running Automated Tests
 
 The backend includes a comprehensive test suite covering form CRUD, question reordering, submissions, analytics, CSV export, and file uploads:
