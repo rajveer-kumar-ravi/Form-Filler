@@ -1,0 +1,22 @@
+{
+  "name": "form-filler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-quality Typeform-inspired conversational form-building platform",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint"
+  },
+  "keywords": [
+    "typeform",
+    "form-builder",
+    "nextjs",
+    "fastapi",
+    "framer-motion",
+    "tailwind"
+  ],
+  "author": "Rajveer Kumar",
+  "license": "MIT"
+}

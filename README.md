@@ -2,6 +2,25 @@
 
 > A production-quality, Typeform-inspired conversational form-building platform built with Next.js 14, TypeScript, Tailwind CSS, FastAPI, and SQLAlchemy.
 
+[![CI / Build & Test](https://github.com/rajveer-kumar-ravi/Form-Filler/actions/workflows/ci.yml/badge.svg)](https://github.com/rajveer-kumar-ravi/Form-Filler/actions)
+![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=next.js)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?logo=fastapi)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?logo=tailwind-css)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+
+---
+
+## 📸 Screenshots Showcase
+
+| **Form Dashboard** | **3-Panel Form Builder** |
+|:---:|:---:|
+| ![FormFlow Dashboard](frontend/public/guide/01-dashboard.png) | ![FormFlow Builder](frontend/public/guide/03-builder-overview.png) |
+
+| **Conversational Respondent Experience** | **Live Results & Analytics** |
+|:---:|:---:|
+| ![Respondent Experience](frontend/public/guide/08-respondent-welcome.png) | ![Results Analytics](frontend/public/guide/09-results-analytics.png) |
+
 ---
 
 ## ✨ Features
