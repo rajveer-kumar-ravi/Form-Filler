@@ -67,6 +67,14 @@
 * Interactive guided tour with Driver.js that highlights working elements.
 * Beginner-friendly explanations.
 
+### 🎁 6. Built-in Bonus Features
+* **Interactive Share & Embed Modal:** Direct links, printable QR code generator (scan to fill on phone), HTML `<iframe>` embed snippet, popup button snippet, and 1-click social sharing (WhatsApp, X, LinkedIn, Email).
+* **6 SaaS Design Presets:** 1-Click theme styling (Typeform Violet, Midnight Dark, Sunset Rose, Nordic Forest, Electric Amber, Minimal Mono) with custom brand color pickers, typography fonts, and card border radiuses.
+* **JSON Submissions Export & Filtering:** Export data in both CSV and structured JSON format, plus live search and completion status filters (`all`, `completed`, `partial`).
+* **Web Audio Sound Effects:** Subtle browser-native audio pops, clicks, and celebratory chimes on answering, with an interactive audio toggle switch.
+* **Keyboard Cheatsheet Modal:** Typeform-style quick shortcuts reference (Press `?` anywhere to trigger).
+* **Form Templates Gallery:** Pre-configured flows for Job Applications (with Resume upload), Customer Satisfaction Surveys, Event RSVP, and Product Feedback.
+
 ---
 
 ## 🏗️ Architecture & Tech Stack

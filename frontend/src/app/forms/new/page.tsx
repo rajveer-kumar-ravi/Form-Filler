@@ -3,7 +3,17 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, Check, CheckCircle2, FileText, UserPlus, Star } from 'lucide-react';
+import {
+  ArrowLeft,
+  Sparkles,
+  Check,
+  CheckCircle2,
+  FileText,
+  UserPlus,
+  Star,
+  CalendarCheck,
+  Lightbulb,
+} from 'lucide-react';
 import { Navbar } from '@/components/common/Navbar';
 import { Button } from '@/components/common/Button';
 import { api } from '@/lib/api';
@@ -29,14 +39,27 @@ export default function NewFormPage() {
     {
       id: 'job',
       title: 'Job / Candidate Application',
-      desc: 'Pre-populated with full name, email, phone, experience, and skills questions.',
+      desc: 'Pre-populated with full name, email, experience, and PDF Resume upload.',
       icon: <UserPlus className="w-5 h-5 text-emerald-600" />,
+      badge: 'Resume Ready',
     },
     {
       id: 'feedback',
       title: 'Customer Feedback Survey',
       desc: 'Optimized for CSAT & NPS scores with rating scales and recommendation choices.',
       icon: <Star className="w-5 h-5 text-amber-500" />,
+    },
+    {
+      id: 'event',
+      title: 'Event RSVP & Registration',
+      desc: 'Collect attendee details, attendance confirmation, dietary preferences & guests.',
+      icon: <CalendarCheck className="w-5 h-5 text-sky-600" />,
+    },
+    {
+      id: 'product',
+      title: 'Product Feature Evaluation',
+      desc: 'Gather user ideas, category classifications, and priority ratings.',
+      icon: <Lightbulb className="w-5 h-5 text-purple-600" />,
     },
   ];
 
@@ -72,6 +95,14 @@ export default function NewFormPage() {
           required: true,
           settings: { options: ['0-1 years', '2-4 years', '5+ years'] },
         });
+        await api.createQuestion(created.id, {
+          title: 'Please upload your Resume / CV (.pdf)',
+          description: 'PDF format up to 15MB',
+          type: 'file_upload',
+          position: 3,
+          required: true,
+          settings: { accept: '.pdf', placeholder: 'Upload your PDF Resume' },
+        });
       } else if (template === 'feedback') {
         await api.createQuestion(created.id, {
           title: 'How would you rate your overall experience?',
@@ -81,7 +112,7 @@ export default function NewFormPage() {
           settings: { scale: 5, minLabel: 'Poor', maxLabel: 'Loved it' },
         });
         await api.createQuestion(created.id, {
-          title: 'Would you recommend us to a friend?',
+          title: 'Would you recommend us to a colleague?',
           type: 'yes_no',
           position: 1,
           required: true,
@@ -90,6 +121,60 @@ export default function NewFormPage() {
           title: 'What could we do better?',
           type: 'long_text',
           position: 2,
+          required: false,
+        });
+      } else if (template === 'event') {
+        await api.createQuestion(created.id, {
+          title: 'Attendee Full Name',
+          type: 'short_text',
+          position: 0,
+          required: true,
+        });
+        await api.createQuestion(created.id, {
+          title: 'Will you be attending in person?',
+          type: 'yes_no',
+          position: 1,
+          required: true,
+        });
+        await api.createQuestion(created.id, {
+          title: 'Dietary Preferences',
+          type: 'dropdown',
+          position: 2,
+          required: false,
+          settings: { options: ['No preference', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Halal'] },
+        });
+        await api.createQuestion(created.id, {
+          title: 'How many additional guests are joining with you?',
+          type: 'number',
+          position: 3,
+          required: true,
+          settings: { min: 0, max: 5 },
+        });
+      } else if (template === 'product') {
+        await api.createQuestion(created.id, {
+          title: 'Feature Name / Idea',
+          type: 'short_text',
+          position: 0,
+          required: true,
+        });
+        await api.createQuestion(created.id, {
+          title: 'Which product area does this belong to?',
+          type: 'multiple_choice',
+          position: 1,
+          required: true,
+          settings: { options: ['User Experience & UI', 'Integrations & API', 'Performance & Speed', 'Reporting & Exports'] },
+        });
+        await api.createQuestion(created.id, {
+          title: 'How important is this feature to your daily workflow?',
+          type: 'rating',
+          position: 2,
+          required: true,
+          settings: { scale: 10, minLabel: 'Nice to have', maxLabel: 'Must have' },
+        });
+        await api.createQuestion(created.id, {
+          title: 'Detailed use case or description',
+          type: 'long_text',
+          position: 3,
           required: false,
         });
       }

@@ -19,6 +19,7 @@ import {
 import { Form } from '@/types/form';
 import { Button } from '@/components/common/Button';
 import { useToast } from '@/components/common/Toast';
+import { ShareModal } from '@/components/common/ShareModal';
 
 interface BuilderHeaderProps {
   form: Form;
@@ -38,6 +39,7 @@ export function BuilderHeader({
   const { success } = useToast();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleText, setTitleText] = useState(form.title);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const isPublished = form.status === 'published';
 
@@ -155,9 +157,9 @@ export function BuilderHeader({
         {isPublished && (
           <>
             <button
-              onClick={handleCopyLink}
+              onClick={() => setIsShareModalOpen(true)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
-              title="Copy public link"
+              title="Share, QR Code & Embed"
             >
               <Share2 className="w-4 h-4" />
             </button>
@@ -183,6 +185,13 @@ export function BuilderHeader({
           {isPublished ? 'Unpublish' : 'Publish'}
         </Button>
       </div>
+
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        shareId={form.share_id}
+        formTitle={form.title}
+      />
     </header>
   );
 }

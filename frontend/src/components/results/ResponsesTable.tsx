@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Eye,
   Calendar,
+  FileJson,
+  Filter,
 } from 'lucide-react';
 import { ResponseDetail } from '@/types/form';
 import { formatDate } from '@/lib/utils';
@@ -28,8 +30,10 @@ export function ResponsesTable({
   exportUrl,
 }: ResponsesTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'partial'>('all');
 
   const filtered = responses.filter((r) => {
+    if (statusFilter !== 'all' && r.completion_status !== statusFilter) return false;
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     const idMatch = String(r.id).includes(term);
@@ -40,26 +44,59 @@ export function ResponsesTable({
     return idMatch || respIdMatch || ansMatch;
   });
 
+  const handleExportJson = () => {
+    const dataStr =
+      'data:text/json;charset=utf-8,' +
+      encodeURIComponent(JSON.stringify(responses, null, 2));
+    const dlAnchor = document.createElement('a');
+    dlAnchor.setAttribute('href', dataStr);
+    dlAnchor.setAttribute('download', `form_${formId}_responses.json`);
+    dlAnchor.click();
+  };
+
   return (
     <div className="space-y-4">
       {/* Search & Export Toolbar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search responses..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-400"
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search in answers & IDs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-400"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="all">All Submissions ({responses.length})</option>
+            <option value="completed">Completed only</option>
+            <option value="partial">Partial / Drop-offs</option>
+          </select>
         </div>
 
-        <a href={exportUrl} download>
-          <Button size="sm" variant="outline" icon={<Download className="w-3.5 h-3.5" />}>
-            Export to CSV
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<FileJson className="w-3.5 h-3.5 text-amber-600" />}
+            onClick={handleExportJson}
+          >
+            Export JSON
           </Button>
-        </a>
+
+          <a href={exportUrl} download>
+            <Button size="sm" variant="outline" icon={<Download className="w-3.5 h-3.5 text-emerald-600" />}>
+              Export to CSV
+            </Button>
+          </a>
+        </div>
       </div>
 
       {/* Table */}

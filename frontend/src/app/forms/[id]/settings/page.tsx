@@ -18,7 +18,11 @@ import {
   AlertTriangle,
   Loader2,
   Check,
+  Share2,
+  QrCode,
+  Sparkles,
 } from 'lucide-react';
+import { ShareModal } from '@/components/common/ShareModal';
 
 export default function FormSettingsPage() {
   const params = useParams();
@@ -36,20 +40,72 @@ export default function FormSettingsPage() {
   const [description, setDescription] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#6366F1');
   const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
+  const [textColor, setTextColor] = useState('#1E293B');
+  const [fontFamily, setFontFamily] = useState('Inter');
+  const [borderRadius, setBorderRadius] = useState('rounded-2xl');
   const [welcomeTitle, setWelcomeTitle] = useState('');
   const [welcomeDesc, setWelcomeDesc] = useState('');
   const [welcomeBtn, setWelcomeBtn] = useState('');
   const [thankYouTitle, setThankYouTitle] = useState('');
   const [thankYouDesc, setThankYouDesc] = useState('');
   const [thankYouBtn, setThankYouBtn] = useState('');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  const colorPresets = [
-    { label: 'Indigo', hex: '#6366F1' },
-    { label: 'Purple', hex: '#8B5CF6' },
-    { label: 'Blue', hex: '#2563EB' },
-    { label: 'Emerald', hex: '#059669' },
-    { label: 'Rose', hex: '#E11D48' },
-    { label: 'Charcoal', hex: '#1E293B' },
+  const themePresets = [
+    {
+      name: 'Typeform Violet',
+      primary: '#6366F1',
+      bg: '#FFFFFF',
+      text: '#1E293B',
+      radius: 'rounded-2xl',
+      font: 'Inter',
+      desc: 'Clean & modern SaaS',
+    },
+    {
+      name: 'Midnight Dark',
+      primary: '#10B981',
+      bg: '#0F172A',
+      text: '#F8FAFC',
+      radius: 'rounded-2xl',
+      font: 'Inter',
+      desc: 'Emerald on dark slate',
+    },
+    {
+      name: 'Sunset Rose',
+      primary: '#F43F5E',
+      bg: '#FFF1F2',
+      text: '#881337',
+      radius: 'rounded-3xl',
+      font: 'Poppins',
+      desc: 'Warm & welcoming blush',
+    },
+    {
+      name: 'Nordic Forest',
+      primary: '#0D9488',
+      bg: '#F0FDFA',
+      text: '#134E4A',
+      radius: 'rounded-xl',
+      font: 'Roboto',
+      desc: 'Fresh mint & teal vibe',
+    },
+    {
+      name: 'Electric Amber',
+      primary: '#D97706',
+      bg: '#FFFBEB',
+      text: '#78350F',
+      radius: 'rounded-2xl',
+      font: 'Inter',
+      desc: 'Vibrant golden cream',
+    },
+    {
+      name: 'Minimal Mono',
+      primary: '#18181B',
+      bg: '#FAFAFA',
+      text: '#09090B',
+      radius: 'rounded-lg',
+      font: 'Inter',
+      desc: 'High-end editorial clean',
+    },
   ];
 
   const loadForm = useCallback(async () => {
@@ -61,6 +117,9 @@ export default function FormSettingsPage() {
       setDescription(data.description || '');
       setPrimaryColor(data.theme_config?.primaryColor || '#6366F1');
       setBackgroundColor(data.theme_config?.backgroundColor || '#FFFFFF');
+      setTextColor(data.theme_config?.textColor || '#1E293B');
+      setFontFamily(data.theme_config?.fontFamily || 'Inter');
+      setBorderRadius(data.theme_config?.borderRadius || 'rounded-2xl');
       setWelcomeTitle(data.welcome_screen?.title || '');
       setWelcomeDesc(data.welcome_screen?.description || '');
       setWelcomeBtn(data.welcome_screen?.buttonText || 'Start');
@@ -91,6 +150,9 @@ export default function FormSettingsPage() {
           ...form.theme_config,
           primaryColor,
           backgroundColor,
+          textColor,
+          fontFamily,
+          borderRadius,
         },
         welcome_screen: {
           ...form.welcome_screen,
@@ -207,6 +269,15 @@ export default function FormSettingsPage() {
             >
               Copy
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              icon={<Share2 className="w-3.5 h-3.5" />}
+              onClick={() => setIsShareModalOpen(true)}
+            >
+              Share, QR & Embed
+            </Button>
             {isPublished && (
               <a
                 href={`/form/${form.share_id}`}
@@ -253,33 +324,139 @@ export default function FormSettingsPage() {
           </div>
 
           {/* Theme & Styling */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Palette className="w-4 h-4 text-indigo-600" />
-              Theme & Colors
-            </h2>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Palette className="w-4 h-4 text-indigo-600" />
+                Theme & Design Presets
+              </h2>
+              <span className="text-[11px] font-medium text-slate-400">
+                Instantly transforms the respondent experience
+              </span>
+            </div>
 
+            {/* 6 Theme Presets */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                Primary Brand Color
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2.5">
+                1-Click Design Presets
               </label>
-              <div className="flex flex-wrap items-center gap-3">
-                {colorPresets.map((preset) => (
-                  <button
-                    key={preset.hex}
-                    type="button"
-                    onClick={() => setPrimaryColor(preset.hex)}
-                    className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 text-xs font-medium"
-                  >
-                    <span
-                      className="w-5 h-5 rounded-lg flex items-center justify-center text-white"
-                      style={{ backgroundColor: preset.hex }}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {themePresets.map((preset) => {
+                  const isSelected =
+                    primaryColor === preset.primary && backgroundColor === preset.bg;
+                  return (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setPrimaryColor(preset.primary);
+                        setBackgroundColor(preset.bg);
+                        setTextColor(preset.text);
+                        setBorderRadius(preset.radius);
+                        setFontFamily(preset.font);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition relative ${
+                        isSelected
+                          ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/20'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
                     >
-                      {primaryColor === preset.hex && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                    </span>
-                    <span>{preset.label}</span>
-                  </button>
-                ))}
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/10"
+                          style={{ backgroundColor: preset.primary }}
+                        />
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/10"
+                          style={{ backgroundColor: preset.bg }}
+                        />
+                        {isSelected && (
+                          <span className="ml-auto text-indigo-600">
+                            <Check className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-bold text-slate-800 truncate">{preset.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{preset.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Colors & Typography */}
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Primary Accent Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-8 h-8 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
+                  />
+                  <input
+                    type="text"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-28 px-2.5 py-1.5 text-xs font-mono border border-slate-200 rounded-lg text-slate-700"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Page Background
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    className="w-8 h-8 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
+                  />
+                  <input
+                    type="text"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    className="w-28 px-2.5 py-1.5 text-xs font-mono border border-slate-200 rounded-lg text-slate-700"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Font Family
+                </label>
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
+                >
+                  <option value="Inter">Inter (Modern & Clean)</option>
+                  <option value="Poppins">Poppins (Friendly & Rounded)</option>
+                  <option value="Roboto">Roboto (Technical & Crisp)</option>
+                  <option value="system-ui">System Sans</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Card Border Radius
+                </label>
+                <select
+                  value={borderRadius}
+                  onChange={(e) => setBorderRadius(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
+                >
+                  <option value="rounded-lg">Slight (8px)</option>
+                  <option value="rounded-2xl">Standard Rounded (16px)</option>
+                  <option value="rounded-3xl">Pill Smooth (24px)</option>
+                </select>
               </div>
             </div>
           </div>
@@ -382,6 +559,14 @@ export default function FormSettingsPage() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteForm}
+      />
+
+      {/* Share, QR Code & Embed Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        shareId={form.share_id}
+        formTitle={form.title}
       />
     </div>
   );

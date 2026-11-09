@@ -10,7 +10,19 @@ import { NavigationControls } from '@/components/respondent/NavigationControls';
 import { WelcomeStep } from '@/components/respondent/WelcomeStep';
 import { QuestionStep } from '@/components/respondent/QuestionStep';
 import { ThankYouStep } from '@/components/respondent/ThankYouStep';
-import { Loader2, Lock, AlertCircle, Sparkles } from 'lucide-react';
+import {
+  Loader2,
+  Lock,
+  AlertCircle,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Keyboard,
+  X,
+  Clock,
+  CornerDownLeft,
+} from 'lucide-react';
+import { playSound } from '@/lib/sound';
 
 export default function PublicFormPage() {
   const params = useParams();
@@ -26,6 +38,8 @@ export default function PublicFormPage() {
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
 
   // Fetch public form
   useEffect(() => {
@@ -128,8 +142,10 @@ export default function PublicFormPage() {
         answers: payloadAnswers,
         completion_status: 'completed',
       });
+      if (soundEnabled) playSound('complete');
       setCurrentStep('thank_you');
     } catch (err: any) {
+      if (soundEnabled) playSound('error');
       const detail = err.response?.data?.detail || 'Failed to submit response. Please try again.';
       setValidationError(detail);
     } finally {
@@ -142,13 +158,18 @@ export default function PublicFormPage() {
     if (!form) return;
 
     if (currentStep === 'welcome') {
+      if (soundEnabled) playSound('next');
       setCurrentStep(0);
       return;
     }
 
     if (typeof currentStep === 'number') {
-      if (!validateCurrentQuestion()) return;
+      if (!validateCurrentQuestion()) {
+        if (soundEnabled) playSound('error');
+        return;
+      }
 
+      if (soundEnabled) playSound('next');
       const nextIndex = currentStep + 1;
       if (nextIndex < form.questions.length) {
         setCurrentStep(nextIndex);
@@ -166,6 +187,7 @@ export default function PublicFormPage() {
     setValidationError(null);
 
     if (typeof currentStep === 'number') {
+      if (soundEnabled) playSound('select');
       if (currentStep === 0) {
         if (form.welcome_screen?.enabled) {
           setCurrentStep('welcome');
@@ -179,6 +201,18 @@ export default function PublicFormPage() {
   // Keyboard navigation listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle shortcuts help on '?'
+      if (e.key === '?' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setIsShortcutsOpen((prev) => !prev);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        setIsShortcutsOpen(false);
+        return;
+      }
+
       // Ignore if user is inside a textarea and pressing plain Enter (allow newline)
       if (
         e.target instanceof HTMLTextAreaElement &&
@@ -347,6 +381,101 @@ export default function PublicFormPage() {
           onNext={handleNext}
           primaryColor={theme.primaryColor}
         />
+      )}
+
+      {/* Floating Quick Controls: Audio & Keyboard Shortcuts */}
+      <div className="fixed bottom-5 left-5 z-40 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSoundEnabled((prev) => !prev)}
+          title={soundEnabled ? 'Mute sound effects' : 'Enable sound effects'}
+          className={`p-2 rounded-xl backdrop-blur-md border text-xs flex items-center gap-1.5 transition-all shadow-xs ${
+            soundEnabled
+              ? 'bg-white/80 border-slate-200 text-indigo-600 hover:bg-white'
+              : 'bg-white/50 border-slate-200 text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          <span className="text-[11px] font-semibold hidden sm:inline">
+            {soundEnabled ? 'Audio On' : 'Muted'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsShortcutsOpen(true)}
+          title="Keyboard shortcuts (?)"
+          className="p-2 rounded-xl bg-white/80 hover:bg-white backdrop-blur-md border border-slate-200 text-slate-500 hover:text-slate-800 text-xs flex items-center gap-1.5 transition-all shadow-xs"
+        >
+          <Keyboard className="w-4 h-4" />
+          <span className="text-[11px] font-semibold hidden sm:inline">Shortcuts</span>
+        </button>
+      </div>
+
+      {/* Keyboard Shortcuts Cheat Sheet Modal */}
+      {isShortcutsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Keyboard className="w-4 h-4 text-indigo-600" />
+                Keyboard Navigation
+              </h3>
+              <button
+                onClick={() => setIsShortcutsOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Advance / Submit</span>
+                <kbd className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold">
+                  Enter ↵
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Previous question</span>
+                <kbd className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold">
+                  Cmd + ↑
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Select choice option</span>
+                <kbd className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold">
+                  A, B, C, D...
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Yes / No answers</span>
+                <kbd className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold">
+                  Y / N
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Rating scales</span>
+                <kbd className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold">
+                  1, 2, 3, 4, 5...
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Toggle this helper</span>
+                <kbd className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold">
+                  ?
+                </kbd>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsShortcutsOpen(false)}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-xs"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Footer Branding */}
