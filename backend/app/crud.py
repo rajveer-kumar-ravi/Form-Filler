@@ -56,6 +56,95 @@ def get_forms(db: Session, user_id: Optional[int] = None, search: Optional[str] 
     return result
 
 
+def check_form_availability(form: models.Form, db: Session) -> tuple[bool, str]:
+    """Check if form is published and within response limit / closing date constraints."""
+    if form.status != "published":
+        return False, "This form is currently in draft or paused mode."
+    
+    settings = form.settings or {}
+    
+    # Check closing date
+    closing_date_str = settings.get("closing_date")
+    if closing_date_str:
+        try:
+            closing_dt = datetime.datetime.fromisoformat(closing_date_str.replace("Z", "+00:00"))
+            if datetime.datetime.utcnow() > closing_dt.replace(tzinfo=None):
+                msg = settings.get("closed_message") or "This form has closed and is no longer accepting responses."
+                return False, msg
+        except Exception:
+            pass
+
+    # Check response limit
+    response_limit = settings.get("response_limit")
+    if response_limit and int(response_limit) > 0:
+        completed_count = db.query(models.Response).filter(
+            models.Response.form_id == form.id,
+            models.Response.completion_status == "completed"
+        ).count()
+        if completed_count >= int(response_limit):
+            msg = settings.get("closed_message") or "This form has reached its maximum response limit."
+            return False, msg
+
+    return True, ""
+
+
+def evaluate_condition(condition: str, rule_value: Any, user_answer: Any) -> bool:
+    """Evaluate a single logic rule condition."""
+    if condition == "equals":
+        if isinstance(user_answer, list):
+            return str(rule_value).strip().lower() in [str(x).strip().lower() for x in user_answer]
+        return str(rule_value).strip().lower() == str(user_answer or "").strip().lower()
+    elif condition == "not_equals":
+        if isinstance(user_answer, list):
+            return str(rule_value).strip().lower() not in [str(x).strip().lower() for x in user_answer]
+        return str(rule_value).strip().lower() != str(user_answer or "").strip().lower()
+    elif condition == "contains":
+        return str(rule_value).strip().lower() in str(user_answer or "").strip().lower()
+    return False
+
+
+def get_active_question_ids(form: models.Form, answers_map: Dict[int, Any]) -> List[int]:
+    """Calculate the ordered list of question IDs visited based on logic jump rules."""
+    questions = sorted(form.questions, key=lambda q: q.position)
+    if not questions:
+        return []
+
+    q_by_id = {q.id: q for q in questions}
+    visited = []
+    visited_set = set()
+    current_idx = 0
+
+    while current_idx < len(questions):
+        current_q = questions[current_idx]
+        if current_q.id in visited_set:
+            break
+        visited.append(current_q.id)
+        visited_set.add(current_q.id)
+
+        rules = current_q.logic_rules or []
+        jumped = False
+        user_val = answers_map.get(current_q.id)
+
+        for rule in rules:
+            cond = rule.get("condition", "equals")
+            target_val = rule.get("value")
+            target_id = rule.get("target_question_id")
+
+            if evaluate_condition(cond, target_val, user_val):
+                if target_id == "thank_you" or target_id == "submit":
+                    return visited
+                elif target_id in q_by_id:
+                    target_idx = next((i for i, q in enumerate(questions) if q.id == target_id), None)
+                    if target_idx is not None and target_idx > current_idx:
+                        current_idx = target_idx
+                        jumped = True
+                        break
+        if not jumped:
+            current_idx += 1
+
+    return visited
+
+
 def get_form(db: Session, form_id: int) -> Optional[models.Form]:
     return db.query(models.Form).filter(models.Form.id == form_id).first()
 
@@ -144,6 +233,8 @@ def duplicate_form(db: Session, form_id: int) -> Optional[models.Form]:
         theme_config=orig_form.theme_config,
         welcome_screen=orig_form.welcome_screen,
         thank_you_screen=orig_form.thank_you_screen,
+        settings=orig_form.settings or {},
+        logic_rules=orig_form.logic_rules or [],
     )
     db.add(new_form)
     db.flush()
@@ -157,6 +248,7 @@ def duplicate_form(db: Session, form_id: int) -> Optional[models.Form]:
             position=q.position,
             required=q.required,
             settings=q.settings,
+            logic_rules=q.logic_rules or [],
         )
         db.add(new_q)
 
@@ -194,6 +286,7 @@ def create_question(db: Session, form_id: int, q_in: schemas.QuestionCreate) -> 
         position=position,
         required=q_in.required or False,
         settings=q_in.settings or {},
+        logic_rules=q_in.logic_rules or [],
     )
     db.add(question)
     db_form.updated_at = datetime.datetime.utcnow()
@@ -257,18 +350,113 @@ def reorder_questions(db: Session, form_id: int, questions_order: List[schemas.Q
     return True
 
 
+# --- SESSION & PARTIAL RESPONSE TRACKING ---
+def init_or_resume_session(
+    db: Session,
+    share_id: str,
+    session_id: Optional[str] = None,
+    respondent_id: Optional[str] = None
+) -> tuple[models.Response, bool]:
+    form = get_form_by_share_id(db, share_id)
+    if not form:
+        raise ValueError("Form not found")
+
+    is_open, msg = check_form_availability(form, db)
+    if not is_open:
+        raise ValueError(msg)
+
+    # Check existing session
+    if session_id:
+        existing = db.query(models.Response).filter(
+            models.Response.session_id == session_id,
+            models.Response.form_id == form.id
+        ).first()
+        if existing:
+            existing.last_activity_at = datetime.datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing, False
+
+    # Create new partial session
+    new_session_id = session_id or str(uuid.uuid4())
+    new_resp = models.Response(
+        form_id=form.id,
+        session_id=new_session_id,
+        respondent_id=respondent_id or str(uuid.uuid4()),
+        completion_status="partial",
+        started_at=datetime.datetime.utcnow(),
+        last_activity_at=datetime.datetime.utcnow(),
+        time_spent_seconds=0,
+    )
+    db.add(new_resp)
+    db.commit()
+    db.refresh(new_resp)
+    return new_resp, True
+
+
+def save_session_progress(
+    db: Session,
+    share_id: str,
+    session_id: str,
+    answers: List[schemas.AnswerSubmission],
+    last_question_id: Optional[int] = None,
+    time_spent_increment: int = 0
+) -> models.Response:
+    form = get_form_by_share_id(db, share_id)
+    if not form:
+        raise ValueError("Form not found")
+
+    resp = db.query(models.Response).filter(
+        models.Response.session_id == session_id,
+        models.Response.form_id == form.id
+    ).first()
+
+    if not resp:
+        resp, _ = init_or_resume_session(db, share_id, session_id=session_id)
+
+    resp.last_activity_at = datetime.datetime.utcnow()
+    if last_question_id is not None:
+        resp.last_question_id = last_question_id
+    if time_spent_increment > 0:
+        resp.time_spent_seconds = (resp.time_spent_seconds or 0) + time_spent_increment
+
+    existing_answers = {a.question_id: a for a in resp.answers}
+    for ans in answers:
+        q = db.query(models.Question).filter(
+            models.Question.id == ans.question_id,
+            models.Question.form_id == form.id
+        ).first()
+        if q:
+            if ans.question_id in existing_answers:
+                existing_answers[ans.question_id].answer_value = ans.answer_value
+            else:
+                db.add(models.Answer(
+                    response_id=resp.id,
+                    question_id=ans.question_id,
+                    answer_value=ans.answer_value
+                ))
+
+    db.commit()
+    db.refresh(resp)
+    return resp
+
+
 # --- SUBMISSION CRUD ---
 def submit_response(db: Session, share_id: str, submission: schemas.ResponseSubmissionRequest) -> Optional[models.Response]:
     form = get_form_by_share_id(db, share_id)
     if not form:
         return None
-    if form.status != "published":
-        raise ValueError("Cannot submit responses to an unpublished or draft form")
 
-    # Validate required questions
+    is_open, msg = check_form_availability(form, db)
+    if not is_open:
+        raise ValueError(msg)
+
+    # Validate required questions, taking into account logic jump skips
     answers_map = {ans.question_id: ans.answer_value for ans in submission.answers}
+    active_q_ids = set(get_active_question_ids(form, answers_map))
+
     for q in form.questions:
-        if q.required:
+        if q.required and q.id in active_q_ids:
             val = answers_map.get(q.id)
             if (
                 val is None
@@ -278,30 +466,59 @@ def submit_response(db: Session, share_id: str, submission: schemas.ResponseSubm
             ):
                 raise ValueError(f"Question '{q.title}' is required.")
 
-    # Create response record
-    response = models.Response(
-        form_id=form.id,
-        respondent_id=submission.respondent_id or str(uuid.uuid4()),
-        completion_status=submission.completion_status or "completed",
-        submitted_at=datetime.datetime.utcnow(),
-    )
-    db.add(response)
-    db.flush()
-
-    # Create answer records
-    for ans in submission.answers:
-        # verify question belongs to this form
-        q = db.query(models.Question).filter(
-            models.Question.id == ans.question_id,
-            models.Question.form_id == form.id
+    # Check if a partial session already exists for this submission to avoid duplicate entries
+    response = None
+    if submission.session_id:
+        response = db.query(models.Response).filter(
+            models.Response.session_id == submission.session_id,
+            models.Response.form_id == form.id
         ).first()
-        if q:
-            answer_record = models.Answer(
-                response_id=response.id,
-                question_id=ans.question_id,
-                answer_value=ans.answer_value,
-            )
-            db.add(answer_record)
+
+    if response:
+        response.completion_status = "completed"
+        response.submitted_at = datetime.datetime.utcnow()
+        response.last_activity_at = datetime.datetime.utcnow()
+        if submission.respondent_id:
+            response.respondent_id = submission.respondent_id
+        if submission.time_spent_seconds:
+            response.time_spent_seconds = submission.time_spent_seconds
+
+        existing_answers = {a.question_id: a for a in response.answers}
+        for ans in submission.answers:
+            if ans.question_id in existing_answers:
+                existing_answers[ans.question_id].answer_value = ans.answer_value
+            else:
+                db.add(models.Answer(
+                    response_id=response.id,
+                    question_id=ans.question_id,
+                    answer_value=ans.answer_value,
+                ))
+    else:
+        # Create new response record
+        response = models.Response(
+            form_id=form.id,
+            session_id=submission.session_id or str(uuid.uuid4()),
+            respondent_id=submission.respondent_id or str(uuid.uuid4()),
+            completion_status="completed",
+            submitted_at=datetime.datetime.utcnow(),
+            started_at=datetime.datetime.utcnow(),
+            last_activity_at=datetime.datetime.utcnow(),
+            time_spent_seconds=submission.time_spent_seconds or 0,
+        )
+        db.add(response)
+        db.flush()
+
+        for ans in submission.answers:
+            q = db.query(models.Question).filter(
+                models.Question.id == ans.question_id,
+                models.Question.form_id == form.id
+            ).first()
+            if q:
+                db.add(models.Answer(
+                    response_id=response.id,
+                    question_id=ans.question_id,
+                    answer_value=ans.answer_value,
+                ))
 
     db.commit()
     db.refresh(response)
@@ -370,14 +587,55 @@ def get_form_analytics(db: Session, form_id: int) -> Optional[Dict[str, Any]]:
     responses = db.query(models.Response).filter(models.Response.form_id == form_id).all()
     total_responses = len(responses)
     completed_responses = sum(1 for r in responses if r.completion_status == "completed")
-    completion_rate = (completed_responses / total_responses * 100.0) if total_responses > 0 else 0.0
+    partial_responses = sum(1 for r in responses if r.completion_status == "partial")
+    
+    completion_rate = round((completed_responses / total_responses * 100.0), 1) if total_responses > 0 else 0.0
+    abandonment_rate = round((partial_responses / total_responses * 100.0), 1) if total_responses > 0 else 0.0
+
+    # Calculate average completion time
+    completed_times = [
+        r.time_spent_seconds for r in responses
+        if r.completion_status == "completed" and r.time_spent_seconds and r.time_spent_seconds > 0
+    ]
+    avg_seconds = round(sum(completed_times) / len(completed_times), 1) if completed_times else None
+    avg_formatted = None
+    if avg_seconds is not None:
+        if avg_seconds >= 60:
+            mins = int(avg_seconds // 60)
+            secs = int(avg_seconds % 60)
+            avg_formatted = f"{mins}m {secs}s"
+        else:
+            avg_formatted = f"{int(avg_seconds)}s"
 
     first_resp = db.query(func.min(models.Response.submitted_at)).filter(models.Response.form_id == form_id).scalar()
     last_resp = db.query(func.max(models.Response.submitted_at)).filter(models.Response.form_id == form_id).scalar()
 
+    # Response trends over time (by date)
+    date_buckets: Dict[str, Dict[str, int]] = {}
+    for r in responses:
+        dt = r.submitted_at or r.started_at
+        if dt:
+            d_str = dt.strftime("%Y-%m-%d")
+            if d_str not in date_buckets:
+                date_buckets[d_str] = {"completed": 0, "partial": 0}
+            if r.completion_status == "completed":
+                date_buckets[d_str]["completed"] += 1
+            else:
+                date_buckets[d_str]["partial"] += 1
+
+    sorted_dates = sorted(date_buckets.keys())
+    response_trends = [
+        {
+            "date": d,
+            "completed": date_buckets[d]["completed"],
+            "partial": date_buckets[d]["partial"],
+            "total": date_buckets[d]["completed"] + date_buckets[d]["partial"],
+        }
+        for d in sorted_dates
+    ]
+
     questions_analytics = []
     for q in form.questions:
-        # Fetch all answers for this question
         answers = db.query(models.Answer).filter(models.Answer.question_id == q.id).all()
         valid_answers = [a.answer_value for a in answers if a.answer_value is not None]
 
@@ -391,12 +649,12 @@ def get_form_analytics(db: Session, form_id: int) -> Optional[Dict[str, Any]]:
             "min": None,
             "max": None,
             "recent_answers": None,
+            "file_count": None,
+            "file_list": None,
         }
 
         if q.type in ["multiple_choice", "dropdown", "yes_no"]:
-            # Count options
             counts: Dict[str, int] = {}
-            # Initialize with configured options
             configured_options = []
             if q.type == "yes_no":
                 configured_options = ["Yes", "No"]
@@ -437,10 +695,22 @@ def get_form_analytics(db: Session, form_id: int) -> Optional[Dict[str, Any]]:
                 q_stat["min"] = min(numeric_vals)
                 q_stat["max"] = max(numeric_vals)
 
+        elif q.type == "file_upload":
+            files = []
+            for val in valid_answers:
+                if isinstance(val, dict) and (val.get("url") or val.get("filename")):
+                    files.append({
+                        "filename": val.get("filename", "Uploaded File"),
+                        "url": val.get("url", ""),
+                        "size_formatted": val.get("size_formatted", "")
+                    })
+            q_stat["file_count"] = len(files)
+            q_stat["file_list"] = files[-10:]
+
         else:
             # text, email, long_text
             text_vals = [str(val) for val in valid_answers if str(val).strip()]
-            q_stat["recent_answers"] = text_vals[-20:]  # most recent 20
+            q_stat["recent_answers"] = text_vals[-20:]
 
         questions_analytics.append(q_stat)
 
@@ -448,9 +718,15 @@ def get_form_analytics(db: Session, form_id: int) -> Optional[Dict[str, Any]]:
         "form_id": form.id,
         "form_title": form.title,
         "total_responses": total_responses,
-        "completion_rate": round(completion_rate, 1),
+        "completed_responses": completed_responses,
+        "partial_responses": partial_responses,
+        "completion_rate": completion_rate,
+        "abandonment_rate": abandonment_rate,
+        "average_completion_time_seconds": avg_seconds,
+        "average_completion_time_formatted": avg_formatted,
         "first_response_at": first_resp,
         "last_response_at": last_resp,
+        "response_trends": response_trends,
         "questions": questions_analytics,
     }
 
@@ -460,14 +736,24 @@ def export_responses_csv(db: Session, form_id: int) -> str:
     if not form:
         return ""
 
-    responses = db.query(models.Response).filter(models.Response.form_id == form_id).order_by(models.Response.submitted_at).all()
+    responses = db.query(models.Response).filter(
+        models.Response.form_id == form_id
+    ).order_by(models.Response.submitted_at).all()
     questions = form.questions
 
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
 
     # Header
-    headers = ["Response ID", "Respondent ID", "Submitted At", "Completion Status"]
+    headers = [
+        "Response ID",
+        "Session ID",
+        "Respondent ID",
+        "Started At",
+        "Submitted At",
+        "Time Spent (s)",
+        "Completion Status",
+    ]
     for q in questions:
         headers.append(f"{q.title} ({q.type})")
     writer.writerow(headers)
@@ -477,8 +763,11 @@ def export_responses_csv(db: Session, form_id: int) -> str:
         answers_dict = {a.question_id: a.answer_value for a in resp.answers}
         row = [
             resp.id,
+            resp.session_id or "",
             resp.respondent_id or "Anonymous",
+            resp.started_at.isoformat() if resp.started_at else "",
             resp.submitted_at.isoformat() if resp.submitted_at else "",
+            resp.time_spent_seconds or 0,
             resp.completion_status,
         ]
         for q in questions:

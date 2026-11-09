@@ -31,6 +31,12 @@ class Form(Base):
     # Welcome & Thank You screen configurations
     welcome_screen = Column(JSON, default=dict)
     thank_you_screen = Column(JSON, default=dict)
+    
+    # Advanced Form Settings (response limit, closing date, custom closed message, submit button text)
+    settings = Column(JSON, default=dict)
+    
+    # Form-wide logic rules
+    logic_rules = Column(JSON, default=list)
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -57,6 +63,9 @@ class Question(Base):
     # rating: {"scale": 5, "minLabel": "Worst", "maxLabel": "Best"}
     # number: {"min": 0, "max": 100}
     settings = Column(JSON, default=dict)
+    
+    # Logic jump rules: [{"id": "...", "condition": "equals", "value": "...", "action": "jump_to", "target_question_id": 123}]
+    logic_rules = Column(JSON, default=list)
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -72,8 +81,13 @@ class Response(Base):
     id = Column(Integer, primary_key=True, index=True)
     form_id = Column(Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True)
     respondent_id = Column(String(128), nullable=True)
+    session_id = Column(String(128), unique=True, index=True, nullable=True)
     submitted_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
-    completion_status = Column(String(32), default="completed")  # "completed" | "partial"
+    started_at = Column(DateTime, default=datetime.datetime.utcnow)
+    last_activity_at = Column(DateTime, default=datetime.datetime.utcnow)
+    completion_status = Column(String(32), default="completed", index=True)  # "completed" | "partial"
+    time_spent_seconds = Column(Integer, default=0)
+    last_question_id = Column(Integer, nullable=True)
 
     # Relationships
     form = relationship("Form", back_populates="responses")

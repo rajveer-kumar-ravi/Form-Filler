@@ -14,11 +14,11 @@ for p in [CURRENT_DIR, BACKEND_DIR, REPO_ROOT]:
         sys.path.insert(0, p)
 
 try:
-    from backend.app.database import engine, Base
+    from backend.app.database import engine, Base, run_migrations
     from backend.app.seed import seed_database
     from backend.app.routers import forms, questions, public, responses, analytics, upload
 except ImportError:
-    from app.database import engine, Base
+    from app.database import engine, Base, run_migrations
     from app.seed import seed_database
     from app.routers import forms, questions, public, responses, analytics, upload
 
@@ -30,6 +30,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def lifespan(app: FastAPI):
     # Initialize DB tables
     Base.metadata.create_all(bind=engine)
+    # Apply safe column additions if upgrading existing database
+    run_migrations()
     # Automatically seed initial forms & sample responses if empty
     seed_database()
     yield

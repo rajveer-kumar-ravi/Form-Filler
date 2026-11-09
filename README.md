@@ -48,32 +48,53 @@
 ### 🎯 3. Conversational Respondent Experience (`/form/[shareId]`)
 * One-question-at-a-time focus to maximize completion rates.
 * Smooth Framer Motion transitions between questions.
-* Full keyboard navigation (Enter to proceed, Up/Down arrows, letter hotkeys).
+* Full keyboard navigation (Enter to proceed, Up/Down arrows, letter hotkeys `A`, `B`, `C`, `D`, `Y`/`N`, numbers `1`-`5`).
+* Web Audio API interactive sound effects (toggleable).
 * Real-time progress bar.
 * Responsive on desktop, tablet, and mobile screens.
 * Celebratory confetti animation upon submission.
 
-### 📊 4. Results & Analytics Dashboard (`/forms/[id]/results`)
-* Key metrics: Total responses, Completion Rate, Average Completion Time.
-* Interactive question-by-question breakdown charts.
-* Submissions data table with quick preview drawer.
-* Dedicated single-response view (`/forms/[id]/responses/[responseId]`).
-* Direct download/view links for uploaded PDF resumes.
-* 1-Click CSV data export.
+### 🔀 4. Conditional Logic / Logic Jumps (`/forms/[id]/logic`)
+* **Visual Logic Canvas:** Configure rules per question:
+  * `IF answer [is equal to / is not equal to / contains] [Value] -> THEN jump to [Question # / Thank You Screen]`.
+  * `OTHERWISE -> Proceeds to Next Question (Default)`.
+* **Smart Validation:** Skipped questions are automatically treated as non-blocking optional fields.
+* **Cycle & Loop Prevention:** Forward-only logic jumps and visited-path tracking.
+* **Live Interactive Simulator:** Test your branching questions and rules on-page in real-time.
 
-### 🧭 5. Interactive Visual User Guide & Guided Tour (`/guide`)
+### 🎨 5. Custom Themes & 6 SaaS Presets
+* 6 Designer presets: *Typeform Violet*, *Midnight Dark*, *Sunset Rose*, *Nordic Forest*, *Electric Amber*, and *Clean Monochrome*.
+* Custom accent color picker, background color picker, font family selector, and card border radius settings.
+* Live respondent styling preview.
+
+### 📊 6. Advanced Analytics & Results (`/forms/[id]/results`)
+* **6 Key Metrics:** Total Started, Completed Responses, In-Progress Partial Responses, Completion %, Drop-off %, and Average Completion Duration.
+* **Activity Trends:** 14-day submission activity bar chart.
+* **Question Breakdown:** Answer distributions, percentages, averages, min/max ratings, and uploaded resume filenames.
+* **Export Options:** 1-Click CSV export with clean escaping and 1-Click JSON export.
+* **Status Filter:** Filter responses by Completed, In-Progress/Partial, or All.
+
+### 💾 7. Partial Response Tracking & Session Resumption
+* Auto-generated respondent session tokens stored in `localStorage`.
+* Real-time per-step progress saving to database.
+* "Welcome back! Resumed your answers" banner on page refresh.
+* Duplicate submission prevention.
+
+### 🔒 8. Availability & Response Limits
+* Set maximum submission limit (auto-closes when limit reached).
+* Set closing timestamp / expiration date.
+* Customizable "Form Closed" notice.
+* Customizable final submit button label.
+
+### 🌓 9. Application-Wide Dark Mode
+* Persistent dark/light mode toggle in navbar and settings.
+* Full Tailwind dark styling across Dashboard, Builder, Logic Canvas, and Results.
+
+### 🧭 10. Interactive Visual User Guide & Guided Tour (`/guide`)
 * 10 complete chapters teaching the platform end-to-end.
 * Real UI screenshots captured directly from the running application.
 * Interactive guided tour with Driver.js that highlights working elements.
 * Beginner-friendly explanations.
-
-### 🎁 6. Built-in Bonus Features
-* **Interactive Share & Embed Modal:** Direct links, printable QR code generator (scan to fill on phone), HTML `<iframe>` embed snippet, popup button snippet, and 1-click social sharing (WhatsApp, X, LinkedIn, Email).
-* **6 SaaS Design Presets:** 1-Click theme styling (Typeform Violet, Midnight Dark, Sunset Rose, Nordic Forest, Electric Amber, Minimal Mono) with custom brand color pickers, typography fonts, and card border radiuses.
-* **JSON Submissions Export & Filtering:** Export data in both CSV and structured JSON format, plus live search and completion status filters (`all`, `completed`, `partial`).
-* **Web Audio Sound Effects:** Subtle browser-native audio pops, clicks, and celebratory chimes on answering, with an interactive audio toggle switch.
-* **Keyboard Cheatsheet Modal:** Typeform-style quick shortcuts reference (Press `?` anywhere to trigger).
-* **Form Templates Gallery:** Pre-configured flows for Job Applications (with Resume upload), Customer Satisfaction Surveys, Event RSVP, and Product Feedback.
 
 ---
 

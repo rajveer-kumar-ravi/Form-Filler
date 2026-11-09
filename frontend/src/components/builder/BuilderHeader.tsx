@@ -15,6 +15,7 @@ import {
   Sparkles,
   Globe,
   Lock,
+  GitBranch,
 } from 'lucide-react';
 import { Form } from '@/types/form';
 import { Button } from '@/components/common/Button';
@@ -26,7 +27,7 @@ interface BuilderHeaderProps {
   onTitleChange: (newTitle: string) => void;
   onPublishToggle: () => Promise<void>;
   publishing: boolean;
-  activeTab: 'builder' | 'results' | 'settings';
+  activeTab: 'builder' | 'logic' | 'results' | 'settings';
 }
 
 export function BuilderHeader({
@@ -115,7 +116,7 @@ export function BuilderHeader({
         </div>
       </div>
 
-      {/* Center: Navigation Tabs (Builder / Results / Settings) */}
+      {/* Center: Navigation Tabs (Builder / Logic / Results / Settings) */}
       <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
         <Link
           href={`/forms/${form.id}/builder`}
@@ -127,6 +128,17 @@ export function BuilderHeader({
         >
           <Layers className="w-3.5 h-3.5" />
           Builder
+        </Link>
+        <Link
+          href={`/forms/${form.id}/logic`}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition ${
+            activeTab === 'logic'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
+          Logic
         </Link>
         <Link
           href={`/forms/${form.id}/results`}

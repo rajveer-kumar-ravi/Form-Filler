@@ -24,10 +24,11 @@ class UserResponse(UserBase):
 class QuestionBase(BaseModel):
     title: str = "Untitled Question"
     description: Optional[str] = ""
-    type: str  # short_text, long_text, multiple_choice, dropdown, email, number, yes_no, rating
+    type: str  # short_text, long_text, multiple_choice, dropdown, email, number, yes_no, rating, file_upload
     position: Optional[int] = 0
     required: Optional[bool] = False
     settings: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    logic_rules: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
 
 
 class QuestionCreate(QuestionBase):
@@ -41,6 +42,7 @@ class QuestionUpdate(BaseModel):
     position: Optional[int] = None
     required: Optional[bool] = None
     settings: Optional[Dict[str, Any]] = None
+    logic_rules: Optional[List[Dict[str, Any]]] = None
 
 
 class QuestionResponse(QuestionBase):
@@ -90,6 +92,8 @@ class FormBase(BaseModel):
             "buttonText": "Submit another response",
         }
     )
+    settings: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    logic_rules: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
 
 
 class FormCreate(FormBase):
@@ -102,6 +106,8 @@ class FormUpdate(BaseModel):
     theme_config: Optional[Dict[str, Any]] = None
     welcome_screen: Optional[Dict[str, Any]] = None
     thank_you_screen: Optional[Dict[str, Any]] = None
+    settings: Optional[Dict[str, Any]] = None
+    logic_rules: Optional[List[Dict[str, Any]]] = None
     status: Optional[str] = None
 
 
@@ -141,6 +147,7 @@ class PublicQuestionResponse(BaseModel):
     position: int
     required: bool
     settings: Dict[str, Any] = {}
+    logic_rules: List[Dict[str, Any]] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -152,6 +159,8 @@ class PublicFormResponse(BaseModel):
     theme_config: Dict[str, Any] = {}
     welcome_screen: Dict[str, Any] = {}
     thank_you_screen: Dict[str, Any] = {}
+    settings: Dict[str, Any] = {}
+    logic_rules: List[Dict[str, Any]] = []
     questions: List[PublicQuestionResponse] = []
 
 
@@ -161,10 +170,33 @@ class AnswerSubmission(BaseModel):
     answer_value: Any
 
 
+class SessionInitRequest(BaseModel):
+    session_id: Optional[str] = None
+    respondent_id: Optional[str] = None
+
+
+class SessionProgressRequest(BaseModel):
+    session_id: str
+    last_question_id: Optional[int] = None
+    answers: List[AnswerSubmission] = []
+    time_spent_increment: Optional[int] = 0
+
+
+class SessionInitResponse(BaseModel):
+    session_id: str
+    is_new: bool
+    last_question_id: Optional[int] = None
+    time_spent_seconds: int = 0
+    answers: List['AnswerDetail'] = []
+    completion_status: str = "partial"
+
+
 class ResponseSubmissionRequest(BaseModel):
     respondent_id: Optional[str] = None
+    session_id: Optional[str] = None
     answers: List[AnswerSubmission]
     completion_status: Optional[str] = "completed"
+    time_spent_seconds: Optional[int] = None
 
 
 class AnswerDetail(BaseModel):
@@ -182,7 +214,12 @@ class ResponseDetail(BaseModel):
     id: int
     form_id: int
     respondent_id: Optional[str] = None
+    session_id: Optional[str] = None
     submitted_at: datetime
+    started_at: Optional[datetime] = None
+    last_activity_at: Optional[datetime] = None
+    time_spent_seconds: Optional[int] = 0
+    last_question_id: Optional[int] = None
     completion_status: str
     answers: List[AnswerDetail] = []
 
@@ -209,13 +246,22 @@ class QuestionAnalytics(BaseModel):
     max: Optional[float] = None
     # For text & email:
     recent_answers: Optional[List[str]] = None
+    # For file uploads:
+    file_count: Optional[int] = None
+    file_list: Optional[List[Dict[str, Any]]] = None
 
 
 class FormAnalyticsResponse(BaseModel):
     form_id: int
     form_title: str
     total_responses: int
+    completed_responses: int = 0
+    partial_responses: int = 0
     completion_rate: float
+    abandonment_rate: float = 0.0
+    average_completion_time_seconds: Optional[float] = None
+    average_completion_time_formatted: Optional[str] = None
     first_response_at: Optional[datetime] = None
     last_response_at: Optional[datetime] = None
+    response_trends: Optional[List[Dict[str, Any]]] = None
     questions: List[QuestionAnalytics] = []

@@ -40,14 +40,53 @@ export default function PublicFormPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [stepHistory, setStepHistory] = useState<number[]>([]);
+  const [resumedBanner, setResumedBanner] = useState<boolean>(false);
 
-  // Fetch public form
+  // Fetch public form & initialize/resume session
   useEffect(() => {
-    async function loadForm() {
+    async function loadFormAndSession() {
       try {
         setLoading(true);
         const data = await api.getPublicForm(shareId);
         setForm(data);
+
+        // Check for existing session in localStorage
+        const storageKey = `formflow_session_${shareId}`;
+        const savedSessionId = typeof window !== 'undefined' ? localStorage.getItem(storageKey) || undefined : undefined;
+
+        try {
+          const session = await api.initOrResumeSession(shareId, { session_id: savedSessionId });
+          if (session?.session_id) {
+            setSessionId(session.session_id);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(storageKey, session.session_id);
+            }
+
+            if (!session.is_new && session.answers && session.answers.length > 0) {
+              const loadedAnswers: Record<number, any> = {};
+              session.answers.forEach((a: any) => {
+                loadedAnswers[a.question_id] = a.answer_value;
+              });
+              setAnswers(loadedAnswers);
+              setResumedBanner(true);
+
+              // If last question was recorded, we can resume there
+              if (session.last_question_id) {
+                const targetIdx = data.questions.findIndex((q) => q.id === session.last_question_id);
+                if (targetIdx !== -1) {
+                  setCurrentStep(targetIdx);
+                  setLoading(false);
+                  return;
+                }
+              }
+            }
+          }
+        } catch (sErr) {
+          console.warn('Session init/resume skipped:', sErr);
+        }
+
         if (!data.welcome_screen?.enabled && data.questions.length > 0) {
           setCurrentStep(0);
         } else {
@@ -56,7 +95,7 @@ export default function PublicFormPage() {
       } catch (err: any) {
         console.error('Failed to load form:', err);
         if (err.response?.status === 403) {
-          setAccessError('This form is currently unpublished or not accepting submissions.');
+          setAccessError(err.response?.data?.detail || 'This form is currently closed or not accepting submissions.');
         } else {
           setAccessError('Form not found. Please verify the URL.');
         }
@@ -64,7 +103,7 @@ export default function PublicFormPage() {
         setLoading(false);
       }
     }
-    loadForm();
+    loadFormAndSession();
   }, [shareId]);
 
   // Validation function
@@ -139,9 +178,13 @@ export default function PublicFormPage() {
 
     try {
       await api.submitPublicResponse(shareId, {
+        session_id: sessionId || undefined,
         answers: payloadAnswers,
         completion_status: 'completed',
       });
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`formflow_session_${shareId}`);
+      }
       if (soundEnabled) playSound('complete');
       setCurrentStep('thank_you');
     } catch (err: any) {
@@ -153,7 +196,21 @@ export default function PublicFormPage() {
     }
   };
 
-  // Move forward
+  // Helper to asynchronously save session progress
+  const persistSessionProgress = (targetQId?: number) => {
+    if (!sessionId || !form) return;
+    const payloadAnswers = Object.entries(answers).map(([qId, answerValue]) => ({
+      question_id: Number(qId),
+      answer_value: answerValue,
+    }));
+    api.saveSessionProgress(shareId, {
+      session_id: sessionId,
+      current_question_id: targetQId,
+      answers: payloadAnswers,
+    }).catch((e) => console.warn('Failed to save progress:', e));
+  };
+
+  // Move forward with Conditional Logic Jumps
   const handleNext = () => {
     if (!form) return;
 
@@ -169,31 +226,86 @@ export default function PublicFormPage() {
         return;
       }
 
+      const currentQ = form.questions[currentStep];
+      const userVal = answers[currentQ.id];
+
+      // Check conditional logic rules
+      let jumpedIdx: number | null = null;
+      let jumpToEnd = false;
+
+      const rules = currentQ.logic_rules || [];
+      for (const rule of rules) {
+        const cond = rule.condition || 'equals';
+        const ruleVal = rule.value;
+        let isMatch = false;
+
+        if (cond === 'equals') {
+          if (Array.isArray(userVal)) {
+            isMatch = userVal.map(String).map((s) => s.trim().toLowerCase()).includes(String(ruleVal).trim().toLowerCase());
+          } else {
+            isMatch = String(userVal || '').trim().toLowerCase() === String(ruleVal || '').trim().toLowerCase();
+          }
+        } else if (cond === 'not_equals') {
+          if (Array.isArray(userVal)) {
+            isMatch = !userVal.map(String).map((s) => s.trim().toLowerCase()).includes(String(ruleVal).trim().toLowerCase());
+          } else {
+            isMatch = String(userVal || '').trim().toLowerCase() !== String(ruleVal || '').trim().toLowerCase();
+          }
+        } else if (cond === 'contains') {
+          isMatch = String(userVal || '').toLowerCase().includes(String(ruleVal || '').toLowerCase());
+        }
+
+        if (isMatch) {
+          if (rule.target_question_id === 'thank_you' || rule.target_question_id === 'submit') {
+            jumpToEnd = true;
+            break;
+          } else {
+            const fIdx = form.questions.findIndex((q) => q.id === Number(rule.target_question_id));
+            if (fIdx !== -1 && fIdx > currentStep) {
+              jumpedIdx = fIdx;
+              break;
+            }
+          }
+        }
+      }
+
       if (soundEnabled) playSound('next');
-      const nextIndex = currentStep + 1;
-      if (nextIndex < form.questions.length) {
-        setCurrentStep(nextIndex);
-        setValidationError(null);
-      } else {
-        // Last question reached - submit!
+      setStepHistory((prev) => [...prev, currentStep]);
+
+      if (jumpToEnd) {
         handleSubmit();
+      } else if (jumpedIdx !== null) {
+        setCurrentStep(jumpedIdx);
+        setValidationError(null);
+        persistSessionProgress(form.questions[jumpedIdx].id);
+      } else {
+        const nextIndex = currentStep + 1;
+        if (nextIndex < form.questions.length) {
+          setCurrentStep(nextIndex);
+          setValidationError(null);
+          persistSessionProgress(form.questions[nextIndex].id);
+        } else {
+          // Last question reached - submit!
+          handleSubmit();
+        }
       }
     }
   };
 
-  // Move backward
+  // Move backward following the user's actual navigation history
   const handlePrev = () => {
     if (!form) return;
     setValidationError(null);
 
-    if (typeof currentStep === 'number') {
+    if (stepHistory.length > 0) {
       if (soundEnabled) playSound('select');
-      if (currentStep === 0) {
-        if (form.welcome_screen?.enabled) {
-          setCurrentStep('welcome');
-        }
-      } else {
-        setCurrentStep(currentStep - 1);
+      const prevStep = stepHistory[stepHistory.length - 1];
+      setStepHistory((prev) => prev.slice(0, -1));
+      setCurrentStep(prevStep);
+    } else if (typeof currentStep === 'number' && currentStep === 0) {
+      if (soundEnabled) playSound('select');
+      if (form.welcome_screen?.enabled) {
+        setCurrentStep('welcome');
       }
     }
   };
@@ -299,6 +411,19 @@ export default function PublicFormPage() {
     >
       {/* Progress Bar */}
       <ProgressBar progress={progressPercent} primaryColor={theme.primaryColor} />
+
+      {/* Resumed Session Notification */}
+      {resumedBanner && (
+        <div className="bg-indigo-600 text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-center gap-2 animate-in fade-in">
+          <span>✨ Welcome back! Resumed your progress from your previous visit.</span>
+          <button
+            onClick={() => setResumedBanner(false)}
+            className="text-white/80 hover:text-white text-[11px] font-bold ml-2 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Brand Top Header */}
       <header className="p-6 flex items-center justify-between select-none">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sparkles, Plus, BookOpen, Compass } from 'lucide-react';
 import { Button } from './Button';
+import { ThemeToggle } from './ThemeToggle';
 
 interface NavbarProps {
   onCreateClick?: () => void;
@@ -93,6 +94,9 @@ export function Navbar({ onCreateClick, onStartTour }: NavbarProps) {
           )}
 
           <div className="h-6 w-[1px] bg-slate-200 mx-1" />
+
+          {/* Theme Mode Toggle */}
+          <ThemeToggle />
 
           {/* User Avatar */}
           <div className="flex items-center gap-2 pl-1">

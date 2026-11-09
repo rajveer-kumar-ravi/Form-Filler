@@ -49,6 +49,10 @@ export default function FormSettingsPage() {
   const [thankYouTitle, setThankYouTitle] = useState('');
   const [thankYouDesc, setThankYouDesc] = useState('');
   const [thankYouBtn, setThankYouBtn] = useState('');
+  const [responseLimit, setResponseLimit] = useState<string>('');
+  const [closingDate, setClosingDate] = useState<string>('');
+  const [closedMessage, setClosedMessage] = useState<string>('');
+  const [submitBtnText, setSubmitBtnText] = useState<string>('Submit');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const themePresets = [
@@ -126,6 +130,10 @@ export default function FormSettingsPage() {
       setThankYouTitle(data.thank_you_screen?.title || '');
       setThankYouDesc(data.thank_you_screen?.description || '');
       setThankYouBtn(data.thank_you_screen?.buttonText || 'Submit another');
+      setResponseLimit(data.settings?.response_limit ? String(data.settings.response_limit) : '');
+      setClosingDate(data.settings?.closing_date || '');
+      setClosedMessage(data.settings?.closed_message || '');
+      setSubmitBtnText(data.settings?.submit_button_text || 'Submit');
     } catch (err) {
       error('Failed to load settings.');
     } finally {
@@ -165,6 +173,13 @@ export default function FormSettingsPage() {
           title: thankYouTitle,
           description: thankYouDesc,
           buttonText: thankYouBtn,
+        },
+        settings: {
+          ...form.settings,
+          response_limit: responseLimit ? Number(responseLimit) : null,
+          closing_date: closingDate || null,
+          closed_message: closedMessage || null,
+          submit_button_text: submitBtnText || 'Submit',
         },
       });
       setForm(updated);
@@ -521,6 +536,77 @@ export default function FormSettingsPage() {
                   onChange={(e) => setThankYouBtn(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Form Availability & Submission Controls */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-indigo-600" />
+              Availability & Response Limits
+            </h2>
+            <p className="text-xs text-slate-500">
+              Control when your form automatically closes and customize respondent-facing messages.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Maximum Response Limit
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 100 (Leave empty for unlimited)"
+                  value={responseLimit}
+                  onChange={(e) => setResponseLimit(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Form auto-closes once this number of submissions is reached.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Closing Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={closingDate}
+                  onChange={(e) => setClosingDate(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Submissions past this timestamp will be rejected automatically.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Submit Button Label
+                </label>
+                <input
+                  type="text"
+                  placeholder="Submit"
+                  value={submitBtnText}
+                  onChange={(e) => setSubmitBtnText(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Text shown on the final submission button.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Custom Closed Message
+                </label>
+                <input
+                  type="text"
+                  placeholder="This form is no longer accepting submissions."
+                  value={closedMessage}
+                  onChange={(e) => setClosedMessage(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Display message shown when closed or limit reached.</p>
               </div>
             </div>
           </div>

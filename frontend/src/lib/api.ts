@@ -99,9 +99,37 @@ export const api = {
     return res.data;
   },
 
+  initOrResumeSession: async (
+    shareId: string,
+    payload: { session_id?: string; respondent_id?: string }
+  ): Promise<{
+    session_id: string;
+    is_new: boolean;
+    last_question_id?: number | null;
+    time_spent_seconds: number;
+    answers: { question_id: number; answer_value: any }[];
+    completion_status: string;
+  }> => {
+    const res = await apiClient.post(`/api/public/forms/${shareId}/session`, payload);
+    return res.data;
+  },
+
+  saveSessionProgress: async (
+    shareId: string,
+    payload: {
+      session_id: string;
+      current_question_id?: number;
+      answers: { question_id: number; answer_value: any }[];
+    }
+  ): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post(`/api/public/forms/${shareId}/progress`, payload);
+    return res.data;
+  },
+
   submitPublicResponse: async (
     shareId: string,
     payload: {
+      session_id?: string;
       respondent_id?: string;
       answers: { question_id: number; answer_value: any }[];
       completion_status?: string;

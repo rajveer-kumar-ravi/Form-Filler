@@ -22,7 +22,8 @@ def test_list_forms():
 
 def test_get_form_detail():
     forms = client.get("/api/forms").json()
-    form_id = forms[0]["id"]
+    target_form = next((f for f in forms if "Senior Full-Stack" in f["title"]), forms[0])
+    form_id = target_form["id"]
     res = client.get(f"/api/forms/{form_id}")
     assert res.status_code == 200
     form = res.json()
@@ -120,3 +121,86 @@ def test_file_upload_endpoint():
     assert "url" in data
     assert data["filename"] == "my_resume.pdf"
     assert "/uploads/" in data["url"]
+
+
+def test_session_and_partial_progress():
+    # 1. Init new respondent session
+    res = client.post("/api/public/forms/job-application-2026/session", json={})
+    assert res.status_code == 200
+    sess = res.json()
+    assert "session_id" in sess
+    sess_id = sess["session_id"]
+    assert sess["is_new"] is True
+
+    # 2. Save partial progress
+    pub_form = client.get("/api/public/forms/job-application-2026").json()
+    first_q = pub_form["questions"][0]
+    prog_res = client.post("/api/public/forms/job-application-2026/progress", json={
+        "session_id": sess_id,
+        "current_question_id": first_q["id"],
+        "answers": [{"question_id": first_q["id"], "answer_value": "Partial Alice"}]
+    })
+    assert prog_res.status_code == 200
+    assert prog_res.json()["success"] is True
+
+    # 3. Resume session
+    resume_res = client.post("/api/public/forms/job-application-2026/session", json={
+        "session_id": sess_id
+    })
+    assert resume_res.status_code == 200
+    resumed_data = resume_res.json()
+    assert resumed_data["is_new"] is False
+    assert resumed_data["session_id"] == sess_id
+    assert len(resumed_data["answers"]) >= 1
+    assert resumed_data["answers"][0]["answer_value"] == "Partial Alice"
+
+
+def test_form_settings_and_logic_rules():
+    # Create form with logic rules & custom settings
+    f_res = client.post("/api/forms", json={
+        "title": "Logic Test Form",
+        "description": "Testing conditional logic",
+        "settings": {
+            "response_limit": 50,
+            "submit_button_text": "Complete Now",
+            "closed_message": "Form is now closed."
+        }
+    })
+    assert f_res.status_code == 201
+    form_data = f_res.json()
+    f_id = form_data["id"]
+
+    # Add question 1
+    q1 = client.post(f"/api/forms/{f_id}/questions", json={
+        "title": "Are you a student?",
+        "type": "yes_no",
+    }).json()
+
+    # Add question 2
+    q2 = client.post(f"/api/forms/{f_id}/questions", json={
+        "title": "What school do you attend?",
+        "type": "short_text",
+    }).json()
+
+    # Add question 3
+    q3 = client.post(f"/api/forms/{f_id}/questions", json={
+        "title": "Where do you work?",
+        "type": "short_text",
+    }).json()
+
+    # Configure logic jump on Q1: If No -> Jump to Q3
+    update_q1 = client.put(f"/api/questions/{q1['id']}", json={
+        "logic_rules": [
+            {
+                "condition": "equals",
+                "value": "No",
+                "target_question_id": q3["id"]
+            }
+        ]
+    })
+    assert update_q1.status_code == 200
+    assert len(update_q1.json()["logic_rules"]) == 1
+
+    # Cleanup
+    client.delete(f"/api/forms/{f_id}")
+

@@ -20,6 +20,13 @@ export interface QuestionSettings {
   [key: string]: any;
 }
 
+export interface LogicRule {
+  id?: string;
+  condition: 'equals' | 'not_equals' | 'contains';
+  value: string;
+  target_question_id: number | 'thank_you' | 'submit';
+}
+
 export interface Question {
   id: number;
   form_id: number;
@@ -29,6 +36,7 @@ export interface Question {
   position: number;
   required: boolean;
   settings: QuestionSettings;
+  logic_rules?: LogicRule[];
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +66,8 @@ export interface Form {
   theme_config: ThemeConfig;
   welcome_screen: ScreenConfig;
   thank_you_screen: ScreenConfig;
+  settings?: Record<string, any>;
+  logic_rules?: LogicRule[];
   created_at: string;
   updated_at: string;
   questions: Question[];
@@ -84,6 +94,7 @@ export interface PublicQuestion {
   position: number;
   required: boolean;
   settings: QuestionSettings;
+  logic_rules?: LogicRule[];
 }
 
 export interface PublicForm {
@@ -93,6 +104,8 @@ export interface PublicForm {
   theme_config: ThemeConfig;
   welcome_screen: ScreenConfig;
   thank_you_screen: ScreenConfig;
+  settings?: Record<string, any>;
+  logic_rules?: LogicRule[];
   questions: PublicQuestion[];
 }
 
@@ -136,7 +149,12 @@ export interface FormAnalytics {
   form_id: number;
   form_title: string;
   total_responses: number;
+  completed_responses?: number;
+  partial_responses?: number;
   completion_rate: number;
+  abandonment_rate?: number;
+  average_completion_time_seconds?: number;
+  response_trends?: { date: string; count: number }[];
   first_response_at?: string;
   last_response_at?: string;
   questions: QuestionAnalytics[];
