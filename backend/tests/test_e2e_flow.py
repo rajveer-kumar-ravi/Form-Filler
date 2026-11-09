@@ -1,8 +1,19 @@
 import requests
-import sys
+import socket
+import pytest
 
 BASE_URL = "http://127.0.0.1:8000"
 
+
+def is_server_running(host="127.0.0.1", port=8000):
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+@pytest.mark.skipif(not is_server_running(), reason="Live FastAPI server not running on port 8000")
 def test_full_flow():
     print("1. Checking API health...")
     r = requests.get(f"{BASE_URL}/api/health")

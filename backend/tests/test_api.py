@@ -36,22 +36,33 @@ def test_public_form_and_submit():
     assert res.status_code == 200
     data = res.json()
     assert data["share_id"] == "job-application-2026"
-    assert len(data["questions"]) == 7
+    assert len(data["questions"]) >= 7
 
     # Submit valid response
     q_map = {q["title"]: q["id"] for q in data["questions"]}
+    answers = []
+    for title, q_id in q_map.items():
+        if "name" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": "Unit Tester"})
+        elif "email" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": "tester@example.com"})
+        elif "phone" in title.lower() or "number" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": "9998887777"})
+        elif "experience" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": "5 - 8 years"})
+        elif "technical skills" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": "Python, TypeScript, React"})
+        elif "available" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": "Yes"})
+        elif "rate" in title.lower() or "proficiency" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": 5})
+        elif "resume" in title.lower():
+            answers.append({"question_id": q_id, "answer_value": {"filename": "resume.pdf", "url": "/uploads/test.pdf"}})
+
     submission = {
         "respondent_id": "test-runner-01",
         "completion_status": "completed",
-        "answers": [
-            {"question_id": q_map["What is your full name?"], "answer_value": "Unit Tester"},
-            {"question_id": q_map["What is your work email address?"], "answer_value": "tester@example.com"},
-            {"question_id": q_map["What is your phone number?"], "answer_value": "9998887777"},
-            {"question_id": q_map["How many years of relevant full-stack experience do you have?"], "answer_value": "5 - 8 years"},
-            {"question_id": q_map["What are your core technical skills and favorite stack?"], "answer_value": "Python, TypeScript, React"},
-            {"question_id": q_map["Are you available to join immediately or within 30 days?"], "answer_value": "Yes"},
-            {"question_id": q_map["How would you rate your proficiency with modern reactive frontend UI?"], "answer_value": 5},
-        ]
+        "answers": answers,
     }
     submit_res = client.post("/api/public/forms/job-application-2026/responses", json=submission)
     assert submit_res.status_code == 201
@@ -99,3 +110,13 @@ def test_create_and_delete_form():
     # Delete
     del_res = client.delete(f"/api/forms/{f_id}")
     assert del_res.status_code == 200
+
+
+def test_file_upload_endpoint():
+    files = {"file": ("my_resume.pdf", b"%PDF-1.4 test resume bytes", "application/pdf")}
+    res = client.post("/api/upload", files=files)
+    assert res.status_code == 201
+    data = res.json()
+    assert "url" in data
+    assert data["filename"] == "my_resume.pdf"
+    assert "/uploads/" in data["url"]

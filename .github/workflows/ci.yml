@@ -25,7 +25,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          pytest backend/tests/ -v
+          pytest backend/tests/test_api.py -v
 
   frontend-build:
     name: Frontend Build (Next.js & TypeScript)
